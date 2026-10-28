@@ -1,0 +1,15 @@
+tools/venv/
+tools/adbkey/
+__pycache__/
+launcher/.gradle/
+launcher/build/
+launcher/app/build/
+launcher/local.properties
+*.apk
+*.aab
+launcher/hs_err_pid*.log
+launcher/replay_pid*.log
+.DS_Store
+# secrets and personal media never go in the repo
+**/tmdb_key.txt
+*.mp4

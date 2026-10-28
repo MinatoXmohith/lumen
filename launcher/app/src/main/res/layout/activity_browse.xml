@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Browse (mkdziner design, Frame 2): three genre stacks of trending posters from TMDB and a music bar. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/browseRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF000000">
+
+    <View
+        android:id="@+id/browsePanel"
+        android:layout_width="878dp"
+        android:layout_height="384dp"
+        android:layout_marginStart="41dp"
+        android:layout_marginTop="38dp" />
+
+    <TextView
+        android:id="@+id/browseHeading"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="66dp"
+        android:layout_marginTop="50dp"
+        android:textColor="#E6FFFFFF"
+        android:textSize="13sp"
+        android:fontFamily="@font/outfit_medium"
+        android:letterSpacing="0.16"
+        android:textAllCaps="true"
+        android:shadowColor="#80000000"
+        android:shadowRadius="8" />
+
+    <TextView
+        android:id="@+id/browseMessage"
+        android:layout_width="700dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="200dp"
+        android:gravity="center"
+        android:textColor="#FFFFFFFF"
+        android:textSize="16sp"
+        android:fontFamily="@font/outfit_medium"
+        android:shadowColor="#80000000"
+        android:shadowRadius="8"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/stack0"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="88dp"
+        android:layout_marginTop="78dp"
+        android:padding="8dp"
+        android:orientation="vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@drawable/focus_ring">
+
+        <FrameLayout android:layout_width="234dp" android:layout_height="236dp">
+            <ImageView android:id="@+id/back0" android:layout_width="146dp" android:layout_height="206dp"
+                android:scaleType="centerCrop" android:elevation="2dp" android:importantForAccessibility="no" />
+            <ImageView android:id="@+id/front0" android:layout_width="146dp" android:layout_height="206dp"
+                android:layout_marginStart="80dp" android:layout_marginTop="30dp"
+                android:scaleType="centerCrop" android:elevation="8dp" android:importantForAccessibility="no" />
+        </FrameLayout>
+
+        <TextView android:id="@+id/genre0" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="18dp" android:gravity="center" android:singleLine="true"
+            android:textColor="#FFFFFFFF" android:textSize="16sp" android:fontFamily="@font/outfit_semibold"
+            android:letterSpacing="0.06" android:textAllCaps="true" android:shadowColor="#80000000" android:shadowRadius="8" />
+        <TextView android:id="@+id/title0" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="2dp" android:gravity="center" android:singleLine="true" android:ellipsize="end"
+            android:textColor="#CCFFFFFF" android:textSize="12sp" android:fontFamily="@font/outfit_regular"
+            android:shadowColor="#80000000" android:shadowRadius="6" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/stack1"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="355dp"
+        android:layout_marginTop="78dp"
+        android:padding="8dp"
+        android:orientation="vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@drawable/focus_ring">
+
+        <FrameLayout android:layout_width="234dp" android:layout_height="236dp">
+            <ImageView android:id="@+id/back1" android:layout_width="146dp" android:layout_height="206dp"
+                android:scaleType="centerCrop" android:elevation="2dp" android:importantForAccessibility="no" />
+            <ImageView android:id="@+id/front1" android:layout_width="146dp" android:layout_height="206dp"
+                android:layout_marginStart="80dp" android:layout_marginTop="30dp"
+                android:scaleType="centerCrop" android:elevation="8dp" android:importantForAccessibility="no" />
+        </FrameLayout>
+
+        <TextView android:id="@+id/genre1" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="18dp" android:gravity="center" android:singleLine="true"
+            android:textColor="#FFFFFFFF" android:textSize="16sp" android:fontFamily="@font/outfit_semibold"
+            android:letterSpacing="0.06" android:textAllCaps="true" android:shadowColor="#80000000" android:shadowRadius="8" />
+        <TextView android:id="@+id/title1" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="2dp" android:gravity="center" android:singleLine="true" android:ellipsize="end"
+            android:textColor="#CCFFFFFF" android:textSize="12sp" android:fontFamily="@font/outfit_regular"
+            android:shadowColor="#80000000" android:shadowRadius="6" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/stack2"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="622dp"
+        android:layout_marginTop="78dp"
+        android:padding="8dp"
+        android:orientation="vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@drawable/focus_ring">
+
+        <FrameLayout android:layout_width="234dp" android:layout_height="236dp">
+            <ImageView android:id="@+id/back2" android:layout_width="146dp" android:layout_height="206dp"
+                android:scaleType="centerCrop" android:elevation="2dp" android:importantForAccessibility="no" />
+            <ImageView android:id="@+id/front2" android:layout_width="146dp" android:layout_height="206dp"
+                android:layout_marginStart="80dp" android:layout_marginTop="30dp"
+                android:scaleType="centerCrop" android:elevation="8dp" android:importantForAccessibility="no" />
+        </FrameLayout>
+
+        <TextView android:id="@+id/genre2" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="18dp" android:gravity="center" android:singleLine="true"
+            android:textColor="#FFFFFFFF" android:textSize="16sp" android:fontFamily="@font/outfit_semibold"
+            android:letterSpacing="0.06" android:textAllCaps="true" android:shadowColor="#80000000" android:shadowRadius="8" />
+        <TextView android:id="@+id/title2" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="2dp" android:gravity="center" android:singleLine="true" android:ellipsize="end"
+            android:textColor="#CCFFFFFF" android:textSize="12sp" android:fontFamily="@font/outfit_regular"
+            android:shadowColor="#80000000" android:shadowRadius="6" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/musicBar"
+        android:layout_width="600dp"
+        android:layout_height="58dp"
+        android:layout_marginStart="180dp"
+        android:layout_marginTop="452dp"
+        android:paddingStart="10dp"
+        android:paddingEnd="22dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:focusable="true"
+        android:clickable="true">
+
+        <ImageView android:id="@+id/barArt" android:layout_width="40dp" android:layout_height="40dp"
+            android:scaleType="centerCrop" android:src="@drawable/ic_music" android:padding="8dp"
+            android:importantForAccessibility="no" />
+        <TextView android:id="@+id/barText" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:layout_marginStart="14dp" android:gravity="center"
+            android:singleLine="true" android:ellipsize="end"
+            android:textColor="#FFFFFFFF" android:textSize="15sp" android:fontFamily="@font/outfit_medium"
+            android:shadowColor="#80000000" android:shadowRadius="6" />
+        <ImageView android:id="@+id/barPlay" android:layout_width="28dp" android:layout_height="28dp"
+            android:src="@drawable/ic_play" android:importantForAccessibility="no" />
+    </LinearLayout>
+</FrameLayout>

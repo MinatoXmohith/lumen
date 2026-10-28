@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Leaving APPS (Home or Back): the grid shrinks back towards the APPS tab and fades. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@interpolator/exit" android:shareInterpolator="true">
+    <scale android:duration="280" android:fromXScale="1" android:toXScale="0.9" android:fromYScale="1" android:toYScale="0.9"
+        android:pivotX="55%" android:pivotY="8%" />
+    <alpha android:duration="280" android:fromAlpha="1" android:toAlpha="0" />
+</set>

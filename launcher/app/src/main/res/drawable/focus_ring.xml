@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Focused tile: a white ring with a thin dark line inside it, so it shows on white banners (SkyPro, YouTube,
+     Netflix) as well as on dark and colourful ones. Nothing when not focused. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <stroke android:width="4dp" android:color="#FFFFFFFF" />
+                    <corners android:radius="14dp" />
+                </shape>
+            </item>
+            <item android:left="4dp" android:top="4dp" android:right="4dp" android:bottom="4dp">
+                <shape android:shape="rectangle">
+                    <stroke android:width="1.5dp" android:color="#8C000000" />
+                    <corners android:radius="10dp" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+    <item><shape android:shape="rectangle"><solid android:color="#00000000" /></shape></item>
+</selector>
