@@ -29,11 +29,10 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
     private final TextureView texture;
     private MediaPlayer player;
     private Surface surface;
-    private boolean windowVisible;
+    private boolean windowVisible, waiting;
+    private final Runnable takeOver = () -> { waiting = false; startNow(); };
     /** The one view allowed to hold the video decoder, and where the loop was when it last let go. */
     private static LoopingVideoView owner;
-    private static String lastPath;
-    private static int lastPosition;
 
     public LoopingVideoView(Context context, File file) {
         super(context);
@@ -46,7 +45,16 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
         texture.setAlpha(0f);
         texture.setSurfaceTextureListener(this);
         addView(texture, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
-        Bitmap frame = Wallpapers.cachedFrame(file);
+        // Another screen is playing this video right now: start from its current picture (half size is plenty
+        // under the fade), so the new screen opens on exactly what was on screen.
+        Bitmap now = null;
+        if (owner != null && owner.file.equals(file) && owner.texture.isAvailable()) {
+            try {
+                now = owner.texture.getBitmap(owner.texture.getWidth() / 2, owner.texture.getHeight() / 2);
+            } catch (Exception | OutOfMemoryError ignored) {
+            }
+        }
+        Bitmap frame = now != null ? now : Wallpapers.cachedFrame(file);
         if (frame != null) still.setImageBitmap(frame);
         else Wallpapers.loadFrame(context, file, b -> { if (b != null) still.setImageBitmap(b); });
     }
@@ -66,56 +74,105 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
     }
 
     private void startIfReady() {
+        if (player != null || waiting || !windowVisible || !texture.isAvailable()) return;
+        if (owner != null && owner != this) {
+            // Another screen is still playing behind the window transition: let the zoom finish on its video,
+            // then take the decoder over. Swapping players mid-animation is what made it stutter.
+            waiting = true;
+            postDelayed(takeOver, Motion.ms(420));
+            return;
+        }
+        startNow();
+    }
+
+    /** One background thread owns every MediaPlayer: creating and releasing one takes tens of ms on this chip. */
+    private static android.os.Handler video;
+
+    private static synchronized android.os.Handler video() {
+        if (video == null) {
+            android.os.HandlerThread t = new android.os.HandlerThread("wallpaper-video");
+            t.start();
+            video = new android.os.Handler(t.getLooper());
+        }
+        return video;
+    }
+
+    private static volatile String lastPath;
+    private static volatile int lastPosition;
+
+    private void startNow() {
         if (player != null || !windowVisible || !texture.isAvailable()) return;
         // hand-over: the screen that just came up takes the decoder; the one behind it lets go first
+        // (both run in order on the video thread, so the old player is gone before the new one opens)
         if (owner != null && owner != this) owner.stop();
         owner = this;
-        try {
-            surface = new Surface(texture.getSurfaceTexture());
-            MediaPlayer mp = new MediaPlayer();
-            player = mp;
-            mp.setSurface(surface);
-            mp.setDataSource(file.getPath());
-            mp.setLooping(true);
-            mp.setVolume(0f, 0f);
-            mp.setOnPreparedListener(p -> {
-                // carry on from where the previous screen left the loop, so the wallpaper never jumps
-                if (file.getPath().equals(lastPath) && lastPosition > 0) p.seekTo(lastPosition);
-                p.start();
-            });
-            mp.setOnInfoListener((p, what, extra) -> {
-                if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
-                    texture.animate().alpha(1f).setDuration(Motion.ms(400)).setInterpolator(Motion.STANDARD).start();
-                }
-                return false;
-            });
-            // a bad file keeps the still frame; never show Android's error dialog over Home
-            mp.setOnErrorListener((p, what, extra) -> { stop(); return true; });
-            mp.prepareAsync();
-        } catch (Exception e) {
-            stop();
-        }
+        final Surface sf = new Surface(texture.getSurfaceTexture());
+        final MediaPlayer mp = new MediaPlayer();
+        player = mp;
+        surface = sf;
+        final String path = file.getPath();
+        video().post(() -> {
+            try {
+                mp.setSurface(sf);
+                mp.setDataSource(path);
+                mp.setLooping(true);
+                mp.setVolume(0f, 0f);
+                mp.setOnPreparedListener(p -> {
+                    // carry on from where the previous screen left the loop, so the wallpaper never jumps
+                    if (path.equals(lastPath) && lastPosition > 0) p.seekTo(lastPosition);
+                    p.start();
+                });
+                mp.setOnInfoListener((p, what, extra) -> {
+                    if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
+                        post(() -> {
+                            if (player == mp) texture.animate().alpha(1f).setDuration(Motion.ms(400))
+                                    .setInterpolator(Motion.STANDARD).start();
+                        });
+                    }
+                    return false;
+                });
+                // a bad file keeps the still frame; never show Android's error dialog over Home
+                mp.setOnErrorListener((p, what, extra) -> { post(() -> { if (player == mp) stop(); }); return true; });
+                mp.prepareAsync();
+            } catch (Exception e) {
+                post(() -> { if (player == mp) stop(); });
+            }
+        });
     }
 
     private void stop() {
+        stop(null);
+    }
+
+    /** Lets go of the decoder; the release itself runs on the video thread. st, if given, is released after it. */
+    private void stop(SurfaceTexture st) {
+        removeCallbacks(takeOver);
+        waiting = false;
         if (owner == this) owner = null;
         // the last video frame stays on the TextureView, so letting go of the decoder shows no jump
-        if (player != null) {
-            try {
-                lastPath = file.getPath();
-                lastPosition = player.getCurrentPosition();
-            } catch (Exception ignored) {
+        final MediaPlayer mp = player;
+        final Surface sf = surface;
+        player = null;
+        surface = null;
+        if (mp == null && sf == null && st == null) return;
+        final String path = file.getPath();
+        video().post(() -> {
+            if (mp != null) {
+                try {
+                    if (mp.isPlaying()) {
+                        lastPath = path;
+                        lastPosition = mp.getCurrentPosition();
+                    }
+                } catch (Exception ignored) {
+                }
+                try {
+                    mp.release();
+                } catch (Exception ignored) {
+                }
             }
-            try {
-                player.release();
-            } catch (Exception ignored) {
-            }
-            player = null;
-        }
-        if (surface != null) {
-            surface.release();
-            surface = null;
-        }
+            if (sf != null) sf.release();
+            if (st != null) st.release();
+        });
     }
 
     @Override
@@ -125,10 +182,10 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
 
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture st) {
-        stop();
         texture.animate().cancel();
         texture.setAlpha(0f);
-        return true;
+        stop(st);   // the texture is released after the player that draws into it
+        return false;
     }
 
     @Override

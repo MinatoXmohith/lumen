@@ -156,6 +156,7 @@ public class WallpaperActivity extends Activity {
         thumb.setClickable(true);
         thumb.addView(preview, match());
         thumb.setForeground(getDrawable(R.drawable.focus_ring));
+        if (live == null) thumb.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         thumb.setClipToOutline(true);
         thumb.setOutlineProvider(new android.view.ViewOutlineProvider() {
             @Override

@@ -306,6 +306,7 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
             tile.setOnClickListener(v -> openPackage(pkg));
             tile.setForeground(getDrawable(R.drawable.focus_ring));
             round(tile, 14);
+            tile.setLayerType(View.LAYER_TYPE_HARDWARE, null);   // springs move a cached picture, not a redraw
             tile.setOnFocusChangeListener((v, f) -> {
                 Motion.focus(v, f, 1.07f, 3 * density);
                 // tvOS: the focused app stands out, the rest of the row steps back a little.

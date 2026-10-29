@@ -244,8 +244,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             // redraw the tile name as something else (#117).
             String label = card != null ? card.label : Cards.cleanLabel(String.valueOf(ri.loadLabel(pm)), pkg);
             if (!seen.add(pkg + '\n' + label)) continue;
-            Drawable banner = loadBanner(pm, ri);
-            Drawable icon = ri.loadIcon(pm);
+            Drawable[] art = art(pm, ri);
+            Drawable banner = art[0];
+            Drawable icon = art[1];
             if (card != null) {
                 fresh.add(new Entry(Entry.CARD, label, component, banner, icon, card.caption, card.accent));
             } else {
@@ -284,6 +285,36 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         items.clear();
         items.addAll(fresh);
         notifyDataSetChanged();
+    }
+
+    /**
+     * Banner and icon, read from each app's APK once and then kept in memory: All apps opens over and over, and
+     * re-reading every banner from disk was most of the stutter while it zoomed in. The key includes the APK path,
+     * which changes when an app is updated, so a new banner shows after an update.
+     */
+    private static final Map<String, Drawable.ConstantState[]> ART = new HashMap<>();
+
+    private Drawable[] art(PackageManager pm, ResolveInfo ri) {
+        String key = ri.activityInfo.packageName + '/' + ri.activityInfo.name + '@'
+                + ri.activityInfo.applicationInfo.sourceDir;
+        Drawable.ConstantState[] cs;
+        synchronized (ART) {
+            cs = ART.get(key);
+        }
+        if (cs != null) {
+            return new Drawable[]{cs[0] == null ? null : cs[0].newDrawable(ctx.getResources()),
+                    cs[1] == null ? null : cs[1].newDrawable(ctx.getResources())};
+        }
+        Drawable banner = loadBanner(pm, ri);
+        Drawable icon = ri.loadIcon(pm);
+        Drawable.ConstantState b = banner == null ? null : banner.getConstantState();
+        Drawable.ConstantState i = icon == null ? null : icon.getConstantState();
+        if ((banner == null || b != null) && (icon == null || i != null)) {
+            synchronized (ART) {
+                ART.put(key, new Drawable.ConstantState[]{b, i});
+            }
+        }
+        return new Drawable[]{banner, icon};
     }
 
     private Drawable loadBanner(PackageManager pm, ResolveInfo ri) {
@@ -367,8 +398,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         h.card.setScaleY(focused && animations ? focusScale() : 1f);
         h.card.setTranslationY(focused && advancedEffects ? -4f * ctx.getResources().getDisplayMetrics().density : 0f);
         h.card.setTranslationZ(focused && advancedEffects ? 8f * ctx.getResources().getDisplayMetrics().density : 0f);
-        h.banner.setScaleX(focused && advancedEffects ? 1.035f : 1f);
-        h.banner.setScaleY(focused && advancedEffects ? 1.035f : 1f);
+        h.banner.setScaleX(1f);
+        h.banner.setScaleY(1f);
         if (e.banner != null) {
             h.banner.setImageDrawable(e.banner);
             h.banner.setVisibility(View.VISIBLE);
@@ -598,6 +629,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 }
             });
             card.setClipToOutline(true);
+            card.setLayerType(View.LAYER_TYPE_HARDWARE, null);   // focus moves a cached picture, not a redraw
 
             card.setOnKeyListener((view, keyCode, event) -> {
                 if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
@@ -635,16 +667,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     // Only on focus: snapping it back to -6dp while it fades out would jump it up over the tile.
                     if (focused) name.setTranslationY(density * 4f);
                 } else {
-                    view.animate().scaleX(s).scaleY(s)
-                            .translationY(focused && advancedEffects ? -4f * density : 0f)
-                            .translationZ(focused && advancedEffects ? 8f * density : 0f)
-                            .setDuration(advancedEffects ? (focused ? 220 : 170) : (focused ? 260 : 180))
-                            .setInterpolator(new OvershootInterpolator(focused ? (advancedEffects ? 0.7f : 1.6f) : 0f))
-                            .withLayer().start();
-                    if (advancedEffects) {
-                        banner.animate().scaleX(focused ? 1.035f : 1f).scaleY(focused ? 1.035f : 1f)
-                                .setDuration(280).start();
-                    }
+                    // the same interruptible springs as Home: fast key presses glide instead of restarting
+                    // (the banner's own zoom inside the tile is gone: it forced a full redraw every frame)
+                    Motion.focus(view, focused, s, advancedEffects ? 4f * density : 0f);
                     name.animate().alpha(focused ? 1f : 0f)
                             .translationY(focused ? density * 4f : -density * 6f)
                             .setDuration(220).start();

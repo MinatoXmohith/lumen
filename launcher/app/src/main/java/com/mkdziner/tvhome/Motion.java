@@ -65,8 +65,8 @@ final class Motion {
             v.setTranslationY(focused ? -rise : 0f);
             return;
         }
-        spring(v, DynamicAnimation.SCALE_X, R.id.spring_scale_x, focused ? scaleTo : 1f, 420f, 0.82f);
-        spring(v, DynamicAnimation.SCALE_Y, R.id.spring_scale_y, focused ? scaleTo : 1f, 420f, 0.82f);
+        spring(v, DynamicAnimation.SCALE_X, R.id.spring_scale_x, focused ? scaleTo : 1f, 400f, 0.86f);
+        spring(v, DynamicAnimation.SCALE_Y, R.id.spring_scale_y, focused ? scaleTo : 1f, 400f, 0.86f);
         spring(v, DynamicAnimation.TRANSLATION_Y, R.id.spring_translation_y, focused ? -rise : 0f, 420f, 0.85f);
         spring(v, DynamicAnimation.TRANSLATION_Z, R.id.spring_translation_z, focused ? rise * 4 : 0f, 300f, 1f);
     }

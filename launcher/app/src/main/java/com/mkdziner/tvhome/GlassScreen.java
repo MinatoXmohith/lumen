@@ -93,6 +93,9 @@ abstract class GlassScreen extends Activity {
     /** Glass card behind a view; tint is a dark veil for legibility (0x10000000 light ... 0x47000000 dark). */
     protected void glass(View v, float radiusDp, int tint) {
         v.setBackground(new LiquidGlass.CardDrawable(v, density, radiusDp * density, tint));
+        // Cached on the GPU: a live wallpaper redraws the screen 30 times a second, and repainting every gradient,
+        // rim and rounded corner of the glass each time is what made focus moves stutter on this TV.
+        v.setLayerType(View.LAYER_TYPE_HARDWARE, null);
     }
 
     /** Glass pill that turns solid white when focused (the existing pill style). */
