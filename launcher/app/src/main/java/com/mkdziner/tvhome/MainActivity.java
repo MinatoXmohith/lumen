@@ -265,8 +265,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root.setBackgroundColor(cfg.backgroundColor);
         LiquidGlass.clear();
         Motion.init(this);
-        // All apps shows the live wallpaper's still frame: Home's player is still letting go of the decoder
-        if (!Wallpapers.applyMood(this, root, false) && cfg.wallpaper != null) showWallpaper(cfg.wallpaper);
+        // the live wallpaper keeps playing here: Home hands its decoder over (see LoopingVideoView)
+        if (!Wallpapers.applyMood(this, root, true) && cfg.wallpaper != null) showWallpaper(cfg.wallpaper);
         sky = findViewById(R.id.sky);
         sky.setIntensity(cfg.skyIntensity);
         glass = findViewById(R.id.glass);

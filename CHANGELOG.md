@@ -6,8 +6,9 @@
 - **Live wallpapers rebuilt:** the video now draws like any other view (TextureView), so it fades and moves with the
   screen instead of flashing black or tearing during transitions. A still frame shows instantly and the video fades in
   over it.
-- **One video decoder at a time:** only Home plays the video. All apps and the Wallpapers screen show its still frame,
-  so two players never overlap on the 2 GB TV.
+- **One video decoder at a time:** Home and All apps both play the live wallpaper, handing one decoder over between
+  them and carrying on from the same moment, so two players never overlap on the 2 GB TV. The Wallpapers screen
+  previews it as a still.
 - **Faster screen opens:** the wallpaper and its glass blur are decoded once and reused, not rebuilt on every open.
 - **Calmer return to Home:** the cards fade and rise a little instead of scaling, which was dropping frames over video.
 

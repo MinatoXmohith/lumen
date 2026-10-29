@@ -30,6 +30,10 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
     private MediaPlayer player;
     private Surface surface;
     private boolean windowVisible;
+    /** The one view allowed to hold the video decoder, and where the loop was when it last let go. */
+    private static LoopingVideoView owner;
+    private static String lastPath;
+    private static int lastPosition;
 
     public LoopingVideoView(Context context, File file) {
         super(context);
@@ -63,6 +67,9 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
 
     private void startIfReady() {
         if (player != null || !windowVisible || !texture.isAvailable()) return;
+        // hand-over: the screen that just came up takes the decoder; the one behind it lets go first
+        if (owner != null && owner != this) owner.stop();
+        owner = this;
         try {
             surface = new Surface(texture.getSurfaceTexture());
             MediaPlayer mp = new MediaPlayer();
@@ -71,7 +78,11 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
             mp.setDataSource(file.getPath());
             mp.setLooping(true);
             mp.setVolume(0f, 0f);
-            mp.setOnPreparedListener(MediaPlayer::start);
+            mp.setOnPreparedListener(p -> {
+                // carry on from where the previous screen left the loop, so the wallpaper never jumps
+                if (file.getPath().equals(lastPath) && lastPosition > 0) p.seekTo(lastPosition);
+                p.start();
+            });
             mp.setOnInfoListener((p, what, extra) -> {
                 if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
                     texture.animate().alpha(1f).setDuration(Motion.ms(400)).setInterpolator(Motion.STANDARD).start();
@@ -87,9 +98,14 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
     }
 
     private void stop() {
-        texture.animate().cancel();
-        texture.setAlpha(0f);
+        if (owner == this) owner = null;
+        // the last video frame stays on the TextureView, so letting go of the decoder shows no jump
         if (player != null) {
+            try {
+                lastPath = file.getPath();
+                lastPosition = player.getCurrentPosition();
+            } catch (Exception ignored) {
+            }
             try {
                 player.release();
             } catch (Exception ignored) {
@@ -110,6 +126,8 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture st) {
         stop();
+        texture.animate().cancel();
+        texture.setAlpha(0f);
         return true;
     }
 
