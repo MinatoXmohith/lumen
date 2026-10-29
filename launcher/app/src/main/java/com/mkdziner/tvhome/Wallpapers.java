@@ -116,7 +116,12 @@ final class Wallpapers {
      * a frozen backdrop, so the motion shows through the glass itself.
      */
     static boolean applyMood(Activity a, ViewGroup root) {
-        View v = create(a, choice(a), true);
+        return applyMood(a, root, true);
+    }
+
+    /** play=false shows a live video's still frame instead of playing it (secondary screens: one decoder at a time). */
+    static boolean applyMood(Activity a, ViewGroup root, boolean play) {
+        View v = create(a, choice(a), true, play);
         if (v == null) return false;
         root.addView(v, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
@@ -125,13 +130,18 @@ final class Wallpapers {
 
     /** A full-screen view for the choice, or null for the theme wallpaper. setGlass feeds a still image to the glass. */
     static View create(Activity a, String choice, boolean setGlass) {
+        return create(a, choice, setGlass, true);
+    }
+
+    static View create(Activity a, String choice, boolean setGlass, boolean play) {
         Entry e = find(a, choice);
         if (e == null) return null;
         if (e.live) {
             if (setGlass) LiquidGlass.clear();
-            return e.scene >= 0 ? new LiveWallpaperView(a, e.scene) : new LoopingVideoView(a, e.file);
+            if (e.scene >= 0) return new LiveWallpaperView(a, e.scene);
+            return play ? new LoopingVideoView(a, e.file) : LoopingVideoView.still(a, e.file);
         }
-        Bitmap bmp = e.res != 0 ? decode(a, e.res, 1) : decodeFile(e.file, 1);
+        Bitmap bmp = staticBitmap(a, choice, e);
         if (bmp == null) return null;
         if (setGlass) {
             android.util.DisplayMetrics dm = a.getResources().getDisplayMetrics();
@@ -141,6 +151,76 @@ final class Wallpapers {
         iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
         iv.setImageBitmap(bmp);
         return iv;
+    }
+
+    // ---- caches: decode each wallpaper once, never again on every screen open ----
+
+    private static String bmpKey;
+    private static Bitmap bmpCache;
+
+    private static Bitmap staticBitmap(Context c, String key, Entry e) {
+        if (key.equals(bmpKey) && bmpCache != null) return bmpCache;
+        Bitmap b = e.res != 0 ? decode(c, e.res, 1) : decodeFile(e.file, 1);
+        if (b != null) { bmpKey = key; bmpCache = b; }
+        return b;
+    }
+
+    private static String themeKey;
+    private static Bitmap themeCache;
+
+    /** The theme wallpaper decoded last time, if the file has not changed since. */
+    static synchronized Bitmap cachedTheme(File f) {
+        return (f.getPath() + f.lastModified()).equals(themeKey) ? themeCache : null;
+    }
+
+    static synchronized void putTheme(File f, Bitmap b) {
+        themeKey = f.getPath() + f.lastModified();
+        themeCache = b;
+    }
+
+    private static final java.util.Map<String, Bitmap> frames = new java.util.HashMap<>();
+    private static final java.util.concurrent.ExecutorService io = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private static final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+
+    interface FrameCallback { void done(Bitmap b); }
+
+    static synchronized Bitmap cachedFrame(File video) {
+        return frames.get(video.getPath());
+    }
+
+    private static synchronized void putFrame(File video, Bitmap b) {
+        if (frames.size() > 2) frames.clear();   // keep memory small on a 2 GB TV
+        frames.put(video.getPath(), b);
+    }
+
+    /** A still of the video (its thumbnail-sized poster on disk if present, else the first frame), off the main thread. */
+    static void loadFrame(Context c, File video, FrameCallback cb) {
+        io.execute(() -> {
+            Bitmap b = null;
+            File poster = new File(video.getParentFile(), video.getName().replaceAll("\\.[^.]+$", "") + ".still.jpg");
+            if (poster.isFile()) b = decodeFile(poster, 1);
+            if (b == null) {
+                android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
+                try {
+                    r.setDataSource(video.getPath());
+                    Bitmap f = r.getFrameAtTime(0);
+                    if (f != null) {
+                        b = f.copy(Bitmap.Config.RGB_565, false);
+                        f.recycle();
+                        try (java.io.FileOutputStream out = new java.io.FileOutputStream(poster)) {
+                            b.compress(Bitmap.CompressFormat.JPEG, 88, out);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                } catch (Exception | OutOfMemoryError ignored) {
+                } finally {
+                    try { r.release(); } catch (Exception ignored) { }
+                }
+            }
+            if (b != null) putFrame(video, b);
+            Bitmap result = b;
+            main.post(() -> cb.done(result));
+        });
     }
 
     /** Small preview for the Wallpapers screen. */

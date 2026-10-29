@@ -36,7 +36,7 @@ abstract class GlassScreen extends Activity {
         Motion.init(this);
         LiquidGlass.clear();
         appliedWallpaper = Wallpapers.choice(this);
-        if (!Wallpapers.applyMood(this, root) && cfg.wallpaper != null) showWallpaper(root, cfg.wallpaper);
+        if (!Wallpapers.applyMood(this, root, playLiveWallpaper()) && cfg.wallpaper != null) showWallpaper(root, cfg.wallpaper);
         File json = new File(Config.dir(this), "config.json");
         if (json.isFile()) {
             try (FileInputStream in = new FileInputStream(json)) {
@@ -48,9 +48,24 @@ abstract class GlassScreen extends Activity {
         }
     }
 
+    /** Only Home plays a live video; other screens show its still frame, so two decoders never overlap. */
+    protected boolean playLiveWallpaper() {
+        return false;
+    }
+
     private void showWallpaper(ViewGroup root, File file) {
         try {
             android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+            Bitmap cached = Wallpapers.cachedTheme(file);
+            if (cached != null) {
+                LiquidGlass.setWallpaper(cached, dm.widthPixels, dm.heightPixels);
+                ImageView wall = new ImageView(this);
+                wall.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                wall.setImageBitmap(cached);
+                root.addView(wall, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT));
+                return;
+            }
             BitmapFactory.Options o = new BitmapFactory.Options();
             o.inJustDecodeBounds = true;
             BitmapFactory.decodeFile(file.getPath(), o);
@@ -63,6 +78,7 @@ abstract class GlassScreen extends Activity {
             o.inPreferredConfig = Bitmap.Config.RGB_565;
             Bitmap bmp = BitmapFactory.decodeFile(file.getPath(), o);
             if (bmp == null) return;
+            Wallpapers.putTheme(file, bmp);
             LiquidGlass.setWallpaper(bmp, dm.widthPixels, dm.heightPixels);
             ImageView wall = new ImageView(this);
             wall.setScaleType(ImageView.ScaleType.CENTER_CROP);

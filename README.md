@@ -30,7 +30,6 @@ your favourite apps on clear glass over a wallpaper that fits your mood. Designe
 | 🏠 **Dashboard home** | Greeting and date, HOME · APPS tabs, a time + photo pill that opens Inputs, Wi-Fi and Settings, and five favourite apps. |
 | 🎵 **Now playing** | Whatever is playing (Spotify, YouTube Music…) with album art and controls; the remote's media keys work too. |
 | 🌤 **Weather** | Temperature, condition, day / night, feels like, UV, wind and cloud cover from [Open-Meteo](https://open-meteo.com): free, no account. |
-| 🎬 **Trending** | Press Down for this week's movies and shows from [TMDB](https://www.themoviedb.org), grouped by genre. |
 | 🖼 **Wallpapers by mood** | Five static and five live (video) wallpapers. Live ones stop the moment an app opens, so the app always gets the video decoder. |
 | 🌊 **Smooth motion** | One set of curves, spring focus, menus that fade out; designed speed even with system animations at 0.5×. |
 | 🪶 **Light** | Plain Java, ~1.7 MB with the built-in wallpapers, no background services, no tracking. |
@@ -39,10 +38,10 @@ your favourite apps on clear glass over a wallpaper that fits your mood. Designe
 
 | | |
 |---|---|
-| ![Trending](docs/trending.jpg) | ![Wallpapers](docs/wallpapers.jpg) |
-| **Trending:** press Down on Home | **Wallpapers:** pick by mood, Static or Live |
-| ![Control panel](docs/control-panel.jpg) | ![Live wallpaper](docs/home-live-wallpaper.jpg) |
-| **Control panel:** from the time pill | **Live wallpaper:** the video plays behind the glass |
+| ![Wallpapers](docs/wallpapers.jpg) | ![Live wallpaper](docs/home-live-wallpaper.jpg) |
+| **Wallpapers:** pick by mood, Static or Live | **Live wallpaper:** the video plays behind the glass |
+| ![Control panel](docs/control-panel.jpg) | ![All apps](docs/all-apps.jpg) |
+| **Control panel:** from the time pill | **All apps:** the APPS tab |
 
 ## Install
 
@@ -82,14 +81,13 @@ A theme is a folder pushed with `tools/theme.sh`:
 | `config.json` → `music_app` | App opened by ▶ when nothing is playing (optional) |
 | `wallpaper.jpg` | 1920×1080 default wallpaper |
 | `avatar.jpg` | Square photo for the time pill |
-| `tmdb_key.txt` | Your free [TMDB API key](https://www.themoviedb.org/settings/api) for Trending. Never commit it. |
 
 **Mood wallpapers:** a folder with `wallpapers.json` (file, thumbnail, mood and name for each), five 1920×1080 images
 and five 1080p H.264 videos, pushed with `tools/wallpapers.sh`. Without it, Lumen shows its built-in set.
 
 ## Privacy
 
-Lumen goes online only for weather (Open-Meteo, your city's coordinates) and Trending (TMDB, with your key).
+Lumen goes online only for weather (Open-Meteo, your city's coordinates). Trending (TMDB) is switched off in 3.1.
 No accounts, analytics or ads. Music info is read on the TV through Android's media sessions and never leaves it.
 
 ## Credits

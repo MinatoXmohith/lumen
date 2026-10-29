@@ -265,7 +265,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root.setBackgroundColor(cfg.backgroundColor);
         LiquidGlass.clear();
         Motion.init(this);
-        if (!Wallpapers.applyMood(this, root) && cfg.wallpaper != null) showWallpaper(cfg.wallpaper);
+        // All apps shows the live wallpaper's still frame: Home's player is still letting go of the decoder
+        if (!Wallpapers.applyMood(this, root, false) && cfg.wallpaper != null) showWallpaper(cfg.wallpaper);
         sky = findViewById(R.id.sky);
         sky.setIntensity(cfg.skyIntensity);
         glass = findViewById(R.id.glass);
@@ -539,6 +540,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void showWallpaper(File file) {
         try {
             android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+            android.graphics.Bitmap cached = Wallpapers.cachedTheme(file);
+            if (cached != null) {
+                LiquidGlass.setWallpaper(cached, dm.widthPixels, dm.heightPixels);
+                android.widget.ImageView wall = new android.widget.ImageView(this);
+                wall.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+                wall.setImageBitmap(cached);
+                root.addView(wall, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                return;
+            }
             android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
             opts.inJustDecodeBounds = true;
             android.graphics.BitmapFactory.decodeFile(file.getPath(), opts);
@@ -558,6 +568,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             opts.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565;   // no alpha needed, half the memory
             android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeFile(file.getPath(), opts);
             if (bmp == null) return;
+            Wallpapers.putTheme(file, bmp);
             LiquidGlass.setWallpaper(bmp, dm.widthPixels, dm.heightPixels);
             android.widget.ImageView wall = new android.widget.ImageView(this);
             wall.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);

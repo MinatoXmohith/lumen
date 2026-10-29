@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.1 (29 October 2026)
+- **Trending is off for now.** Down on Home no longer opens it and nothing is fetched from TMDB; it froze the TV on
+  some opens. It will come back once it is rebuilt to be lighter.
+- **Live wallpapers rebuilt:** the video now draws like any other view (TextureView), so it fades and moves with the
+  screen instead of flashing black or tearing during transitions. A still frame shows instantly and the video fades in
+  over it.
+- **One video decoder at a time:** only Home plays the video. All apps and the Wallpapers screen show its still frame,
+  so two players never overlap on the 2 GB TV.
+- **Faster screen opens:** the wallpaper and its glass blur are decoded once and reused, not rebuilt on every open.
+- **Calmer return to Home:** the cards fade and rise a little instead of scaling, which was dropping frames over video.
+
 ## 3.0 · Lumen (28 October 2026)
 First release under its own name and app ID (`com.mkdziner.tvhome`), with its own icon and TV banner.
 Everything from the CleanYourTV-based builds below is included.

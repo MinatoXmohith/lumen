@@ -27,6 +27,10 @@ final class LiquidGlass {
     private static final int SCALE = 3;           // backdrop is 1/3 of the screen with a light blur: clear glass
     private static Bitmap backdrop;
     private static float backdropScale;
+    // the last wallpaper's blur, kept so reopening a screen with the same wallpaper costs nothing
+    private static Bitmap lastSource, lastBackdrop;
+    private static float lastScale;
+    private static int lastW, lastH;
 
     private LiquidGlass() {}
 
@@ -37,6 +41,11 @@ final class LiquidGlass {
 
     /** Builds the blurred backdrop from the wallpaper as CENTER_CROP shows it on a screenW x screenH screen. */
     static void setWallpaper(Bitmap wall, int screenW, int screenH) {
+        if (wall == lastSource && screenW == lastW && screenH == lastH && lastBackdrop != null) {
+            backdrop = lastBackdrop;
+            backdropScale = lastScale;
+            return;
+        }
         try {
             int bw = Math.max(1, screenW / SCALE), bh = Math.max(1, screenH / SCALE);
             Bitmap small = Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888);
@@ -52,6 +61,7 @@ final class LiquidGlass {
             small.setPixels(px, 0, bw, 0, 0, bw, bh);
             backdrop = small;
             backdropScale = (float) screenW / bw;
+            lastSource = wall; lastBackdrop = small; lastScale = backdropScale; lastW = screenW; lastH = screenH;
         } catch (Exception | OutOfMemoryError e) {
             backdrop = null;   // glass without the blur is still glass
         }

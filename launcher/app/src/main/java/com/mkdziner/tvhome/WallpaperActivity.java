@@ -208,7 +208,8 @@ public class WallpaperActivity extends Activity {
 
     /** Crossfades the full-screen preview behind the cards to the given choice. */
     private void showBackground(String id, boolean animate) {
-        View v = Wallpapers.create(this, id, false);
+        // live videos preview as a still here: Home plays them, and two players crossfading stalled the TV
+        View v = Wallpapers.create(this, id, false, false);
         if (v == null) v = themePreview();
         if (v == null) return;
         bgHolder.addView(v, match());

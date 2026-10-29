@@ -96,7 +96,6 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
         buildApps();
 
         nowPlaying = new NowPlaying(this, this);
-        prefetchTrending();
         root.post(this::focusFirstApp);
     }
 
@@ -119,7 +118,6 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
         nowPlaying.start();
         if (System.currentTimeMillis() - weatherAt > WEATHER_EVERY_MS) {
             loadWeather();
-            prefetchTrending();
         }
     }
 
@@ -146,6 +144,11 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
 
     private boolean returningFromApps, homePressed;
 
+    @Override
+    protected boolean playLiveWallpaper() {
+        return true;
+    }
+
     /** APPS: press bounce on the tab, then the grid grows in while home steps back. */
     private void openApps(View tab) {
         tab.animate().scaleX(0.9f).scaleY(0.9f).setDuration(Motion.ms(90)).withEndAction(() -> {
@@ -167,17 +170,16 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
      */
     private void settleIn() {
         int[] order = {R.id.hello, R.id.dashDate, R.id.tabs, R.id.btnStatus, R.id.musicCard, R.id.weatherMain,
-                R.id.weatherStats, R.id.appRow, R.id.trendingHint};
+                R.id.weatherStats, R.id.appRow};
         for (int i = 0; i < order.length; i++) {
             View v = findViewById(order[i]);
             if (v == null) continue;
             v.animate().cancel();
+            // fade + a short rise only: scaling nine glass cards over a playing video dropped frames on this TV
             v.setAlpha(0f);
-            v.setScaleX(1.05f);
-            v.setScaleY(1.05f);
-            v.setTranslationY(-10 * density);
-            v.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setStartDelay(Motion.ms(i < 4 ? 0 : 40L * (i - 3)))
-                    .setDuration(Motion.ms(300)).setInterpolator(Motion.EMPHASIZED).start();
+            v.setTranslationY(8 * density);
+            v.animate().alpha(1f).translationY(0f).setStartDelay(Motion.ms(i < 4 ? 0 : 30L * (i - 3)))
+                    .setDuration(Motion.ms(260)).setInterpolator(Motion.EMPHASIZED).withLayer().start();
         }
     }
 
@@ -309,31 +311,11 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
                 // tvOS: the focused app stands out, the rest of the row steps back a little.
                 appRow.post(this::dimUnfocusedApps);
             });
-            // Down from the row: the trending page below.
-            tile.setOnKeyListener((v, code, e) -> {
-                if (e.getAction() == KeyEvent.ACTION_DOWN && code == KeyEvent.KEYCODE_DPAD_DOWN) {
-                    openTrending();
-                    return true;
-                }
-                return false;
-            });
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(tileW, ViewGroup.LayoutParams.MATCH_PARENT);
             if (i > 0) lp.leftMargin = gap;
             appRow.addView(tile, lp);
             if (i == 0) firstApp = tile;
         }
-    }
-
-    /** Warms the trending cache in the background, so the page below slides up already filled. */
-    private void prefetchTrending() {
-        String key = Tmdb.key(Config.dir(this));
-        if (key == null) return;
-        Net.IO.execute(() -> {
-            try {
-                Tmdb.load(key, "featured");
-            } catch (Exception ignored) {
-            }
-        });
     }
 
     private void dimUnfocusedApps() {
@@ -343,11 +325,6 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
             float target = focused == null || t == focused ? 1f : 0.7f;
             t.animate().alpha(target).setDuration(Motion.ms(170)).start();
         }
-    }
-
-    private void openTrending() {
-        startActivity(new Intent(this, BrowseActivity.class).putExtra("kind", "featured"));
-        overridePendingTransition(R.anim.slide_up_in, R.anim.hold);
     }
 
     // ------------------------------------------------------------------ control panel
