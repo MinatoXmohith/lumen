@@ -30,7 +30,7 @@ final class WatchTracker {
     private final class Track extends MediaController.Callback {
         final MediaController controller;
         final String pkg;
-        String title = "", subtitle = "";
+        String title = "", subtitle = "", mediaId = "";
         Bitmap art;
         long duration, position, watched, lastTick, lastSave;
         boolean playing;
@@ -47,6 +47,9 @@ final class WatchTracker {
         public void onMetadataChanged(MediaMetadata md) {
             if (md == null) return;     // apps often clear this on the way out: keep what we knew
             String t = text(md, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
+            duration = Math.max(0, md.getLong(MediaMetadata.METADATA_KEY_DURATION));
+            lookUp(text(md, MediaMetadata.METADATA_KEY_MEDIA_ID));
+            if (WatchHistory.isJustAppName(ctx, pkg, t)) t = "";   // Prime's "title" is always "PrimeVideo"
             if (t.isEmpty()) return;
             if (!t.equals(title)) {
                 save();                 // the next episode: the last one keeps its own place
@@ -55,11 +58,26 @@ final class WatchTracker {
             }
             title = t;
             subtitle = text(md, MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, MediaMetadata.METADATA_KEY_ARTIST);
-            duration = Math.max(0, md.getLong(MediaMetadata.METADATA_KEY_DURATION));
             Bitmap b = md.getBitmap(MediaMetadata.METADATA_KEY_ART);
             if (b == null) b = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
             if (b == null) b = md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON);
             if (b != null) art = b;
+        }
+
+        /** Prime sends no title, only an ID, which its public page turns into a name and poster. */
+        private void lookUp(String id) {
+            if (id.equals(mediaId) || !TitleLookup.supports(pkg, id)) return;
+            save();                     // the last title keeps its own place
+            watched = 0;
+            title = "";
+            art = null;
+            mediaId = id;
+            TitleLookup.find(id, (name, poster) -> {
+                if (!id.equals(mediaId) || name.isEmpty()) return;
+                title = name;
+                art = poster;
+                save();
+            });
         }
 
         @Override
@@ -94,6 +112,7 @@ final class WatchTracker {
             item.pkg = pkg;
             item.title = title;
             item.subtitle = subtitle;
+            item.mediaId = mediaId;
             item.position = position;
             item.duration = duration;
             item.updated = System.currentTimeMillis();

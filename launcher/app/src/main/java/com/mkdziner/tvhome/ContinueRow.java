@@ -216,12 +216,12 @@ final class ContinueRow {
     /** Line under the title: the app, and time left when the app reports it, otherwise when it was watched. */
     private String detail(WatchHistory.Item item) {
         String app = appName(item.pkg);
-        if (item.title.isEmpty()) return relative(item.updated);
         if (item.duration > 0) {
             long left = Math.max(1, (item.duration - item.position) / 60_000);
-            return a.getString(R.string.continue_left, app, left);
+            return item.title.isEmpty() ? a.getString(R.string.continue_left_app, left)
+                    : a.getString(R.string.continue_left, app, left);
         }
-        return app + "  ·  " + relative(item.updated);
+        return item.title.isEmpty() ? relative(item.updated) : app + "  ·  " + relative(item.updated);
     }
 
     private String relative(long when) {

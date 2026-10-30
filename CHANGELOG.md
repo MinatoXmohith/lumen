@@ -4,6 +4,8 @@
 - **Continue watching:** a row above the favourites in All apps, with title, poster and progress. Android keeps each
   app's own Watch Next list behind a system-only permission, so Lumen builds this list itself from what apps announce
   through media sessions. It stays on the TV. Music apps and anything under a minute are left out; hold OK to remove one.
+  Prime Video reports only an ID, so Lumen reads the name and poster from Prime's public page for it. Apps that announce
+  nothing appear as the app and when it was last watched, noticed through the remote buttons service.
 - **Favourites:** hold OK on any app to move it, or add it to or remove it from favourites. Home and All apps now share
   one saved order. The hold menu also keeps App info.
 - **Remote buttons:** Launcher settings > Remote buttons: press a button and choose what it does, from any app.

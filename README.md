@@ -94,7 +94,7 @@ and five 1080p H.264 videos, pushed with `tools/wallpapers.sh`. Without it, Lume
 
 ## Privacy
 
-Lumen goes online only for weather (Open-Meteo, your city's coordinates). Trending (TMDB) is switched off in 3.1.
+Lumen goes online only for weather (Open-Meteo, your city's coordinates) and, while you watch Prime Video, to read that title's name and poster from Prime Video's own public page. Your Continue watching list stays on the TV. Trending (TMDB) is switched off in 3.1.
 No accounts, analytics or ads. Music info is read on the TV through Android's media sessions and never leaves it.
 
 ## Credits

@@ -51,6 +51,7 @@
     <string name="home_key_description">Makes the remote\'s Home button open Lumen, and carries out the button choices in Launcher settings.</string>
     <string name="continue_watching">CONTINUE WATCHING</string>
     <string name="continue_left">%1$s  ·  %2$d min left</string>
+    <string name="continue_left_app">%1$d min left</string>
     <string name="continue_remove">Remove from Continue watching</string>
     <string name="tile_move">Move</string>
     <string name="tile_add_favourite">Add to favourites</string>

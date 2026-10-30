@@ -22,11 +22,13 @@ public class HomeKeyService extends AccessibilityService {
     private int[] settingsScancodes = new int[0];
     private int[] settingsKeycodes = new int[0];
     private boolean settingsPanel;
+    private ForegroundWatch watch;
     private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        watch = new ForegroundWatch(this);
         settingsScancodes = getResources().getIntArray(R.array.settings_key_scancodes);
         // Keycodes and the panel choice can also come from a theme; theme.sh restarts this service.
         Config config = Config.load(this);
@@ -83,6 +85,13 @@ public class HomeKeyService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (watch != null && event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) watch.onWindow(event.getPackageName());
+    }
+
+    @Override
+    public void onDestroy() {
+        if (watch != null) watch.stop();
+        super.onDestroy();
     }
 
     @Override

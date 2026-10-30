@@ -32,7 +32,7 @@ import java.util.Objects;
 final class WatchHistory {
 
     static final class Item {
-        String pkg = "", title = "", subtitle = "", art = "";
+        String pkg = "", title = "", subtitle = "", art = "", mediaId = "";
         long position, duration, updated;
 
         /** Fraction watched, 0 to 1, or -1 when the app doesn't report a length. */
@@ -50,6 +50,8 @@ final class WatchHistory {
     static final float FINISHED = 0.95f;
     /** Less than this is a trailer or a preview on an app's home page, not something being watched. */
     static final long MIN_WATCHED_MS = 60_000;
+
+    private static final long RECENT_TITLE_MS = 10 * 60_000;
 
     private static final String FILE = "continue_watching.json";
     private static final String ART_DIR = "continue_art";
@@ -74,6 +76,20 @@ final class WatchHistory {
         }
     }
 
+    /** True when a session's "title" only repeats the app's name, as Prime Video's does. */
+    static boolean isJustAppName(Context c, String pkg, String title) {
+        String t = title.replaceAll("[^A-Za-z0-9]", "").toLowerCase(java.util.Locale.ROOT);
+        if (t.isEmpty()) return true;
+        try {
+            PackageManager pm = c.getPackageManager();
+            String label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString();
+            String l = label.replaceAll("[^A-Za-z0-9]", "").toLowerCase(java.util.Locale.ROOT);
+            return !l.isEmpty() && Math.abs(l.length() - t.length()) <= 6 && (l.contains(t) || t.contains(l));
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
     static synchronized void setLive(String pkg, PendingIntent intent) {
         if (intent == null) live.remove(pkg);
         else live.put(pkg, intent);
@@ -92,6 +108,7 @@ final class WatchHistory {
                 it.title = o.optString("title");
                 it.subtitle = o.optString("subtitle");
                 it.art = o.optString("art");
+                it.mediaId = o.optString("mediaId");
                 it.position = o.optLong("position");
                 it.duration = o.optLong("duration");
                 it.updated = o.optLong("updated");
@@ -110,7 +127,7 @@ final class WatchHistory {
             JSONArray a = new JSONArray();
             for (Item it : items) {
                 a.put(new JSONObject().put("pkg", it.pkg).put("title", it.title).put("subtitle", it.subtitle)
-                        .put("art", it.art).put("position", it.position).put("duration", it.duration)
+                        .put("art", it.art).put("mediaId", it.mediaId).put("position", it.position).put("duration", it.duration)
                         .put("updated", it.updated));
             }
             out = f.startWrite();
@@ -124,11 +141,30 @@ final class WatchHistory {
     /** Adds or updates this title and moves it to the front; a finished title leaves the list. */
     static synchronized void record(Context c, Item item, Bitmap art) {
         List<Item> items = load(c);
+        // "Last watched in this app" adds nothing while the same app's real title is fresh in the list
+        if (item.title.isEmpty()) {
+            for (Item it : items) {
+                if (it.pkg.equals(item.pkg) && !it.title.isEmpty() && item.updated - it.updated < RECENT_TITLE_MS) return;
+            }
+        }
         Item old = null;
         for (Item it : items) {
             if (it.key().equals(item.key())) old = it;
         }
-        if (old != null) items.remove(old);
+        // a named title replaces the app's "last watched" card
+        if (!item.title.isEmpty()) {
+            for (int i = items.size() - 1; i >= 0; i--) {
+                if (items.get(i).pkg.equals(item.pkg) && items.get(i).title.isEmpty()) items.remove(i);
+            }
+        }
+        if (old != null) {
+            items.remove(old);
+            // the foreground check knows only that the app was used: keep the progress a session gave
+            if (item.title.isEmpty() && item.duration == 0) {
+                item.position = old.position;
+                item.duration = old.duration;
+            }
+        }
         if (finished(item.position, item.duration)) {
             if (old != null) deleteArt(c, old);
             save(c, items);
@@ -190,6 +226,14 @@ final class WatchHistory {
                 session.send();
                 return;
             } catch (PendingIntent.CanceledException ignored) {
+            }
+        }
+        Intent title = TitleLookup.openIntent(item.pkg, item.mediaId);
+        if (title != null) {
+            try {
+                c.startActivity(title.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                return;
+            } catch (ActivityNotFoundException ignored) {
             }
         }
         PackageManager pm = c.getPackageManager();
