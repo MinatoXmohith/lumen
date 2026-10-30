@@ -114,6 +114,25 @@ abstract class GlassScreen extends Activity {
         v.setClipToOutline(true);
     }
 
+    /** Shows a popup just above a tile, where there is always room for it, sliding up as it fades in. */
+    static void popAbove(android.widget.PopupWindow popup, View panel, View anchor, View root, float density) {
+        panel.measure(View.MeasureSpec.makeMeasureSpec(popup.getWidth(), View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.UNSPECIFIED);
+        int[] at = new int[2];
+        anchor.getLocationInWindow(at);
+        int y = Math.max((int) (12 * density), at[1] - panel.getMeasuredHeight() - (int) (12 * density));
+        // over a bright tile plain glass isn't enough to read by: add a dark layer behind the rows
+        android.graphics.drawable.GradientDrawable veil = new android.graphics.drawable.GradientDrawable();
+        veil.setColor(0xD914171C);
+        veil.setCornerRadius(24 * density);
+        panel.setBackground(new android.graphics.drawable.LayerDrawable(
+                new android.graphics.drawable.Drawable[]{veil, panel.getBackground()}));
+        panel.setAlpha(0f);
+        panel.setTranslationY(8 * density);
+        popup.showAtLocation(root, android.view.Gravity.TOP | android.view.Gravity.START, at[0], y);
+        panel.animate().alpha(1f).translationY(0f).setDuration(Motion.ms(200)).setInterpolator(Motion.EMPHASIZED).start();
+    }
+
     protected void openPackage(String pkg) {
         Intent i = getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
         if (i == null) i = getPackageManager().getLaunchIntentForPackage(pkg);

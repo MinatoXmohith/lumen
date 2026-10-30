@@ -29,7 +29,7 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
     private final TextureView texture;
     private MediaPlayer player;
     private Surface surface;
-    private boolean windowVisible, waiting;
+    private boolean windowVisible, waiting, coveredByFrame;
     private final Runnable takeOver = () -> { waiting = false; startNow(); };
     /** The one view allowed to hold the video decoder, and where the loop was when it last let go. */
     private static LoopingVideoView owner;
@@ -78,11 +78,32 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
         if (owner != null && owner != this) {
             // Another screen is still playing behind the window transition: let the zoom finish on its video,
             // then take the decoder over. Swapping players mid-animation is what made it stutter.
+            showFrame(owner.snapshot());
             waiting = true;
-            postDelayed(takeOver, Motion.ms(420));
+            postDelayed(takeOver, Motion.ms(300));
             return;
         }
+        if (file.getPath().equals(lastPath)) showFrame(lastFrame);
         startNow();
+    }
+
+    /** A half-size copy of what this view is showing, or null. */
+    private Bitmap snapshot() {
+        if (player == null || !texture.isAvailable()) return null;
+        try {
+            return texture.getBitmap(texture.getWidth() / 2, texture.getHeight() / 2);
+        } catch (Exception | OutOfMemoryError e) {
+            return null;
+        }
+    }
+
+    /** Covers whatever old frame this view holds with the current one, so coming back never jumps in time. */
+    private void showFrame(Bitmap frame) {
+        if (frame == null) return;
+        still.setImageBitmap(frame);
+        texture.animate().cancel();
+        texture.setAlpha(0f);
+        coveredByFrame = true;
     }
 
     /** One background thread owns every MediaPlayer: creating and releasing one takes tens of ms on this chip. */
@@ -99,6 +120,8 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
 
     private static volatile String lastPath;
     private static volatile int lastPosition;
+    /** The picture on screen when the video last stopped: where the next screen should carry on from. */
+    private static Bitmap lastFrame;
 
     private void startNow() {
         if (player != null || !windowVisible || !texture.isAvailable()) return;
@@ -119,13 +142,21 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
                 mp.setVolume(0f, 0f);
                 mp.setOnPreparedListener(p -> {
                     // carry on from where the previous screen left the loop, so the wallpaper never jumps
-                    if (path.equals(lastPath) && lastPosition > 0) p.seekTo(lastPosition);
-                    p.start();
+                    if (path.equals(lastPath) && lastPosition > 0) {
+                        p.setOnSeekCompleteListener(MediaPlayer::start);
+                        p.seekTo(lastPosition, MediaPlayer.SEEK_CLOSEST);
+                    } else {
+                        p.start();
+                    }
                 });
                 mp.setOnInfoListener((p, what, extra) -> {
                     if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
                         post(() -> {
-                            if (player == mp) texture.animate().alpha(1f).setDuration(Motion.ms(400))
+                            if (player != mp) return;
+                            // Over a picture of the same moment there's nothing to fade: a full-screen blend here
+                            // only cost frames. The first start of all has no such picture, so that one does fade.
+                            if (coveredByFrame) texture.setAlpha(1f);
+                            else texture.animate().alpha(1f).setDuration(Motion.ms(400))
                                     .setInterpolator(Motion.STANDARD).start();
                         });
                     }
@@ -149,6 +180,11 @@ public class LoopingVideoView extends FrameLayout implements TextureView.Surface
         removeCallbacks(takeOver);
         waiting = false;
         if (owner == this) owner = null;
+        Bitmap frame = snapshot();
+        if (frame != null) {
+            lastFrame = frame;
+            lastPath = file.getPath();
+        }
         // the last video frame stays on the TextureView, so letting go of the decoder shows no jump
         final MediaPlayer mp = player;
         final Surface sf = surface;

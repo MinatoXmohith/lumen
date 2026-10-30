@@ -178,6 +178,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** fill_dock false: the dock can have empty slots, which reorder mode leaves out and restores afterwards. */
     private boolean fillDockLeavesSlots;
     private AppLibraryDialog appLibrary;
+    private ContinueRow continueRow;
+    private boolean leaving, shownOnce;
+    /** The carried tile came from the tile menu: putting it down also ends reorder mode. */
+    private boolean quickMove;
     private boolean libraryFocusPending;
     private RecyclerView.OnScrollListener pendingFocusScroll;
 
@@ -356,12 +360,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         });
         if (dockRow) grid.addItemDecoration(new DockDecoration(COLUMNS, density));
-        if (animations) {
-            int enterAnim = reducedMotion ? R.anim.tile_enter_reduced : R.anim.tile_enter;
-            float enterDelay = reducedMotion ? 0f : 0.06f;
-            grid.setLayoutAnimation(new LayoutAnimationController(
-                    AnimationUtils.loadAnimation(this, enterAnim), enterDelay));
-        }
         adapter = new AppAdapter(this, this, COLUMNS, cfg);
         dockApps = cfg.dockApps;
         fillDockLeavesSlots = !cfg.fillDock;
@@ -390,6 +388,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (!MainActivity.this.dockRow) want = (int) (AppAdapter.TOP_ROOM_DP * density);
             if (grid.getPaddingTop() != want) {
                 grid.setPadding(grid.getPaddingLeft(), want, grid.getPaddingRight(), grid.getPaddingBottom());
+            }
+        });
+
+        // Continue watching sits above the favourites and leaves with them when the grid scrolls.
+        continueRow = new ContinueRow(this, root, new ContinueRow.Host() {
+            @Override public void onRowDown() { focusTile(Math.min(lastFocused, COLUMNS - 1)); }
+            @Override public void onRowUp() { btnStatus.requestFocus(); }
+            @Override public void onRowFocused() { hideGlass(); hideHero(); }
+            @Override public void onRowMenu(WatchHistory.Item item, View card) { showContinueMenu(item, card); }
+        });
+        grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> placeContinueRow());
+        grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
+                placeContinueRow();
             }
         });
 
@@ -619,6 +632,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             reloadApps(true);
         }
         rebuildOnResume = false;
+        continueRow.refresh();
+        placeContinueRow();
+        if (!shownOnce) {
+            shownOnce = true;
+            contentIn();
+        }
         updateGreeting();
         updateWifiLabel();
         updateInputsButton();
@@ -660,7 +679,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             ambient.setAlpha(0f);
         }
         reloadTiles();
-        if (animate && animations && !reducedMotion) grid.scheduleLayoutAnimation();
 
         if (restoreFocus) {
             // Keep a focused footer at the end even when the app count changes.
@@ -716,7 +734,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onPause() {
         super.onPause();
         // Leaving the grid (Back, or Home clearing it from the task): shrink it back towards the APPS tab.
-        if (isFinishing()) overridePendingTransition(0, R.anim.apps_exit);
+        if (isFinishing()) overridePendingTransition(0, 0);
         endReorder();   // Home or another app while reordering keeps the order so far
         stopAmbientAnimation();
         heroName.animate().cancel();
@@ -808,7 +826,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     return true;
                 default:
                     if (ok || back) {
-                        if (!down) drop();
+                        if (!down) {
+                            drop();
+                            if (quickMove) {
+                                quickMove = false;
+                                endReorder();
+                            }
+                        }
                         return true;
                     }
                     return super.dispatchKeyEvent(event);
@@ -831,6 +855,70 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         View f = getCurrentFocus();
         if (f == null || f.getId() != R.id.card || !(f.getParent() instanceof View)) return -1;
         return grid.getChildAdapterPosition((View) f.getParent());
+    }
+
+    private void placeContinueRow() {
+        if (continueRow == null) return;
+        int dockTop = grid.getTop() + ((View) grid.getParent()).getTop() + grid.getPaddingTop();
+        continueRow.setGrid(dockTop, grid.computeVerticalScrollOffset());
+    }
+
+    private void showContinueMenu(WatchHistory.Item item, View anchor) {
+        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        PopupWindow popup = glassPopup(panel, (int) (280 * density));
+        addSettingsMenuRow(rows, popup, R.string.continue_remove, () -> {
+            WatchHistory.remove(this, item);
+            continueRow.refresh();
+            placeContinueRow();
+            focusTile(Math.min(lastFocused, COLUMNS - 1));
+        });
+        dropIn(popup, panel, anchor, Gravity.START);
+        rows.getChildAt(0).requestFocus();
+    }
+
+    /** Hold OK on a tile: move it, change whether it's a favourite, or see the app's info. */
+    @Override
+    public void onTileMenu(int position, String pkg, View card) {
+        if (reordering || position < 0 || position >= adapter.movableCount()) return;
+        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        PopupWindow popup = glassPopup(panel, (int) (240 * density));
+        addSettingsMenuRow(rows, popup, R.string.tile_move, () -> startMove(position));
+        if (dockRow && !adapter.hasEmptySlots() && adapter.movableCount() > COLUMNS) {
+            boolean favourite = position < COLUMNS;
+            addSettingsMenuRow(rows, popup, favourite ? R.string.tile_remove_favourite : R.string.tile_add_favourite,
+                    () -> setFavourite(position, !favourite));
+        }
+        addSettingsMenuRow(rows, popup, R.string.tile_app_info, () -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + pkg)));
+            } catch (ActivityNotFoundException e) {
+                Toast.makeText(this, R.string.not_available, Toast.LENGTH_LONG).show();
+            }
+        });
+        GlassScreen.popAbove(popup, panel, card, root, density);
+        rows.getChildAt(0).requestFocus();
+    }
+
+    private void startMove(int position) {
+        if (!reordering) toggleReorder();
+        if (!reordering) return;
+        quickMove = true;
+        focusTile(position);
+        pickUp(position);
+        Toast.makeText(this, R.string.tile_move_hint, Toast.LENGTH_SHORT).show();
+    }
+
+    /** Favourites are the first tiles: a new one takes the last place, a removed one goes just after them. */
+    private void setFavourite(int position, boolean favourite) {
+        int to = favourite ? COLUMNS - 1 : COLUMNS;
+        keepScroll(() -> adapter.move(position, to));
+        Order order = new Order(Order.dockKey(dockApps), adapter.movableKeys());
+        if (Order.save(Order.file(this), order)) adapter.setSavedOrder(Order.ranks(order, dockApps));
+        else Toast.makeText(this, R.string.reorder_not_saved, Toast.LENGTH_SHORT).show();
+        refocusAfterLayout(to);
+        if (favourite) Toast.makeText(this, R.string.favourite_added, Toast.LENGTH_SHORT).show();
     }
 
     /** The reorder button: turns the mode on (focus goes back to the last tile), or off again. */
@@ -957,7 +1045,44 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Back from the APPS grid returns to the dashboard home. */
     @Override
     public void onBackPressed() {
-        finish();
+        if (leaving) return;
+        leaving = true;
+        // The content leaves over the wallpaper, then home arrives over the same wallpaper.
+        for (View v : contentViews()) {
+            v.animate().cancel();
+            v.animate().alpha(0f).translationY(6 * density).setDuration(Motion.ms(120))
+                    .setInterpolator(Motion.EXIT).withLayer().start();
+        }
+        hideGlass();
+        hideHero();
+        root.postDelayed(this::finish, Motion.ms(120));
+    }
+
+    /** Everything on this screen that isn't the wallpaper, as whole groups: one layer each, however many tiles. */
+    private List<View> contentViews() {
+        List<View> out = new ArrayList<>();
+        out.add((View) grid.getParent());
+        if (continueRow != null && continueRow.visible()) out.add(continueRow.view());
+        return out;
+    }
+
+    /** All apps arrives as one piece. Fading whole groups costs the GPU almost nothing; animating each tile did not. */
+    private void contentIn() {
+        if (!animations) return;
+        continueRow.setEntering(true);
+        List<View> views = contentViews();
+        for (View v : views) {
+            v.setAlpha(Motion.PRIMED);
+            v.setTranslationY(8 * density);
+        }
+        // The first frames are the slow ones: the fade starts once they're done, not during them.
+        Motion.afterFrames(5, () -> {
+            for (View v : views) {
+                v.animate().alpha(1f).translationY(0f).setDuration(Motion.ms(240))
+                        .setInterpolator(Motion.EMPHASIZED).withLayer().start();
+            }
+            root.postDelayed(() -> continueRow.setEntering(false), Motion.ms(260));
+        });
     }
 
 
@@ -1047,6 +1172,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     // ---- top shelf -------------------------------------------------------------------------------
 
     private void showHero(int position, float dockTopInRoot) {
+        if (continueRow != null && continueRow.visible()) return;   // the row has that space
         String label = adapter.labelAt(position);
         int color = adapter.ambientColorAt(position);
         float y = dockTopInRoot - 14 * density - 26 * density - heroName.getHeight();
@@ -1400,7 +1526,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     rtlAppGrid, keyCode == KeyEvent.KEYCODE_DPAD_LEFT);
         }
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-            if (position < COLUMNS) return false;          // dock row: let focus move to the top bar
+            if (position < COLUMNS) {
+                if (!continueRow.visible()) return false;   // dock row: let focus move to the top bar
+                continueRow.focus();
+                return true;
+            }
             target = position - COLUMNS;
         } else {
             int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;

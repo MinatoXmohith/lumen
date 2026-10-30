@@ -4,6 +4,8 @@
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:colorBackground">@android:color/black</item>
         <item name="android:windowAnimationStyle">@null</item>
+        <!-- No blank starting window: Home stays on screen until All apps has drawn its first frame. -->
+        <item name="android:windowDisablePreview">true</item>
     </style>
 
     <!-- Frosted pill, tvOS style. -->

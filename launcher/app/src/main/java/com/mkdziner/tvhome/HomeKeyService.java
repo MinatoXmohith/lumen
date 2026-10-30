@@ -16,11 +16,13 @@ import android.view.accessibility.AccessibilityEvent;
  *   settings put secure accessibility_enabled 1
  */
 public class HomeKeyService extends AccessibilityService {
+    // Also carries out the choices made in Launcher settings → Remote buttons (see RemoteKeys).
 
     /** Remote buttons that should open Settings (config.xml, settings_key_scancodes and settings_key_keycodes). */
     private int[] settingsScancodes = new int[0];
     private int[] settingsKeycodes = new int[0];
     private boolean settingsPanel;
+    private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
 
     @Override
     protected void onServiceConnected() {
@@ -41,6 +43,24 @@ public class HomeKeyService extends AccessibilityService {
 
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
+        // The Remote buttons screen is waiting for a press: it takes this one.
+        RemoteKeys.Capture capture = RemoteKeys.capture;
+        if (capture != null) {
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                int id = RemoteKeys.id(event);
+                String label = RemoteKeys.label(event);
+                main.post(() -> capture.onButton(id, label));
+            }
+            return !RemoteKeys.locked(event.getKeyCode());   // arrows, OK and Back keep working on that screen
+        }
+        // A button the owner changed in Launcher settings → Remote buttons.
+        if (!RemoteKeys.locked(event.getKeyCode())) {
+            String action = RemoteKeys.action(this, RemoteKeys.id(event));
+            if (action != null) {
+                if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) RemoteKeys.run(this, action);
+                return true;
+            }
+        }
         // The stock launcher handled the remote's Settings button; with it disabled the button does nothing.
         if (isSettingsKey(event)) {
             if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {

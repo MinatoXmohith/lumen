@@ -42,6 +42,21 @@ final class Motion {
         return (long) (designed / scale);
     }
 
+    /**
+     * Almost invisible, but still drawn. A screen coming back has lost its GPU caches, and rebuilding them stalls
+     * the first frames: at this alpha that happens before the fade starts, instead of in the middle of it.
+     */
+    static final float PRIMED = 0.01f;
+
+    /** Runs after this many frames have been drawn, however long the slow first frames take. */
+    static void afterFrames(int frames, Runnable r) {
+        if (frames <= 0) {
+            r.run();
+            return;
+        }
+        android.view.Choreographer.getInstance().postFrameCallback(t -> afterFrames(frames - 1, r));
+    }
+
     /** Springs a view property to target, reusing the spring stored under tagId so it can be interrupted smoothly. */
     static void spring(View v, DynamicAnimation.ViewProperty prop, int tagId, float target, float stiffness, float damping) {
         Object tag = v.getTag(tagId);

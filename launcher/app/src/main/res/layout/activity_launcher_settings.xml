@@ -28,6 +28,12 @@
             android:text="Wallpapers  ·  pick by mood (static &amp; live)" />
 
         <TextView
+            android:id="@+id/remoteButtonsChoice"
+            style="@style/SettingsRow"
+            android:layout_marginTop="10dp"
+            android:text="@string/remote_buttons" />
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"

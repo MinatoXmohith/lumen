@@ -107,6 +107,10 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
             recreate();
             return;
         }
+        // Favourites changed in All apps: Home shows them straight away.
+        boolean rebuilt = orderStamp != Order.file(this).lastModified();
+        if (rebuilt) buildApps();
+        if (rebuilt && !returningFromApps) focusFirstApp();
         if (returningFromApps) {
             returningFromApps = false;
             settleIn();
@@ -142,21 +146,44 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
         // Home has nowhere to go back to.
     }
 
-    private boolean returningFromApps, homePressed;
+    private boolean returningFromApps, homePressed, openingApps;
+    /** Everything on home that isn't the wallpaper, top to bottom. */
+    private static final int[] CONTENT = {R.id.hello, R.id.dashDate, R.id.tabs, R.id.btnStatus, R.id.musicCard,
+            R.id.weatherMain, R.id.weatherStats, R.id.appRow};
+    private static final int FAVOURITES = 5;
+    /** Every tile in order, favourites first, as Order saves it; and when that file last changed. */
+    private List<String> orderKeys = new ArrayList<>();
+    private long orderStamp;
+    /** Index of the favourite being carried, or -1. */
+    private int movingIndex = -1;
 
     @Override
     protected boolean playLiveWallpaper() {
         return true;
     }
 
-    /** APPS: press bounce on the tab, then the grid grows in while home steps back. */
+    /**
+     * APPS: home's content lifts away over the wallpaper, then the grid arrives over the same wallpaper. The windows
+     * themselves don't animate: zooming and fading two full-screen windows over a video is more than this TV's GPU
+     * can do smoothly, and the wallpaper staying put is what makes the change feel like one screen.
+     */
     private void openApps(View tab) {
-        tab.animate().scaleX(0.9f).scaleY(0.9f).setDuration(Motion.ms(90)).withEndAction(() -> {
-            tab.animate().scaleX(1f).scaleY(1f).setDuration(Motion.ms(140)).start();
+        if (openingApps) return;
+        openingApps = true;
+        for (int id : CONTENT) {
+            View v = findViewById(id);
+            if (v == null) continue;
+            v.animate().cancel();
+            v.animate().alpha(0f).translationY(-6 * density).setStartDelay(0).setDuration(Motion.ms(130))
+                    .setInterpolator(Motion.EXIT).withLayer().start();
+        }
+        Runnable go = () -> {
+            openingApps = false;
             returningFromApps = true;
             startActivity(new Intent(this, MainActivity.class));
-            overridePendingTransition(R.anim.apps_enter, R.anim.home_exit);
-        }).start();
+            overridePendingTransition(0, 0);
+        };
+        root.postDelayed(go, Motion.ms(130));
     }
 
     private static void bounce(View v) {
@@ -169,18 +196,22 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
      * from slightly larger and transparent, so home answers the grid shrinking away.
      */
     private void settleIn() {
-        int[] order = {R.id.hello, R.id.dashDate, R.id.tabs, R.id.btnStatus, R.id.musicCard, R.id.weatherMain,
-                R.id.weatherStats, R.id.appRow};
-        for (int i = 0; i < order.length; i++) {
-            View v = findViewById(order[i]);
+        for (int i = 0; i < CONTENT.length; i++) {
+            View v = findViewById(CONTENT[i]);
             if (v == null) continue;
             v.animate().cancel();
             // fade + a short rise only: scaling nine glass cards over a playing video dropped frames on this TV
-            v.setAlpha(0f);
+            v.setAlpha(Motion.PRIMED);
             v.setTranslationY(8 * density);
-            v.animate().alpha(1f).translationY(0f).setStartDelay(Motion.ms(i < 4 ? 0 : 30L * (i - 3)))
-                    .setDuration(Motion.ms(260)).setInterpolator(Motion.EMPHASIZED).withLayer().start();
         }
+        Motion.afterFrames(4, () -> {
+            for (int i = 0; i < CONTENT.length; i++) {
+                View v = findViewById(CONTENT[i]);
+                if (v == null) continue;
+                v.animate().alpha(1f).translationY(0f).setStartDelay(Motion.ms(i < 4 ? 0 : 30L * (i - 3)))
+                        .setDuration(Motion.ms(260)).setInterpolator(Motion.EMPHASIZED).withLayer().start();
+            }
+        });
     }
 
     private void focusFirstApp() {
@@ -267,20 +298,35 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
         PackageManager pm = getPackageManager();
         Intent q = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER);
         List<ResolveInfo> apps = new ArrayList<>();
+        java.util.Set<String> removed = LibraryApps.loadRemoved(this), added = LibraryApps.load(this), seen = new java.util.HashSet<>();
         for (ResolveInfo ri : pm.queryIntentActivities(q, 0)) {
             String p = ri.activityInfo.packageName;
-            if (p.equals(getPackageName()) || cfg.hiddenApps.contains(p)) continue;
+            if (p.equals(getPackageName()) || cfg.hiddenApps.contains(p) || removed.contains(p)) continue;
             apps.add(ri);
+            seen.add(p);
         }
+        if (!added.isEmpty()) {
+            for (ResolveInfo ri : pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)) {
+                String p = ri.activityInfo.packageName;
+                if (added.contains(p) && seen.add(p)) apps.add(ri);
+            }
+        }
+        // The same saved order as All apps, so a favourite set in either place shows in both.
+        orderStamp = Order.file(this).lastModified();
+        java.util.Map<String, Integer> ranks = Order.ranks(Order.load(Order.file(this)), cfg.dockApps);
         Collections.sort(apps, (a, b) -> {
+            int saved = Order.compare(ranks, tileKey(a), tileKey(b));
+            if (saved != 0) return saved;
             int ia = cfg.dockApps.indexOf(a.activityInfo.packageName), ib = cfg.dockApps.indexOf(b.activityInfo.packageName);
             if (ia < 0) ia = 1000;
             if (ib < 0) ib = 1000;
             if (ia != ib) return ia - ib;
             return String.valueOf(a.loadLabel(pm)).compareToIgnoreCase(String.valueOf(b.loadLabel(pm)));
         });
+        orderKeys = new ArrayList<>();
+        for (ResolveInfo ri : apps) orderKeys.add(tileKey(ri));
         appRow.removeAllViews();
-        int n = Math.min(5, apps.size());
+        int n = Math.min(FAVOURITES, apps.size());
         int tileW = (int) (136 * density), gap = (int) ((856 - 5 * 136) / 4f * density);
         for (int i = 0; i < n; i++) {
             ResolveInfo ri = apps.get(i);
@@ -306,6 +352,10 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
             tile.setOnClickListener(v -> openPackage(pkg));
             tile.setForeground(getDrawable(R.drawable.focus_ring));
             round(tile, 14);
+            tile.setOnLongClickListener(v -> {
+                showTileMenu(v, pkg);
+                return true;
+            });
             tile.setLayerType(View.LAYER_TYPE_HARDWARE, null);   // springs move a cached picture, not a redraw
             tile.setOnFocusChangeListener((v, f) -> {
                 Motion.focus(v, f, 1.07f, 3 * density);
@@ -317,6 +367,101 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
             appRow.addView(tile, lp);
             if (i == 0) firstApp = tile;
         }
+    }
+
+    private static String tileKey(ResolveInfo ri) {
+        return new ComponentName(ri.activityInfo.packageName, ri.activityInfo.name).flattenToShortString();
+    }
+
+    private void saveOrder() {
+        Order.save(Order.file(this), new Order(Order.dockKey(cfg.dockApps), orderKeys));
+        orderStamp = Order.file(this).lastModified();
+    }
+
+    /** Hold OK on a favourite: move it, take it off Home, or go and pick others in All apps. */
+    private void showTileMenu(View tile, String pkg) {
+        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        PopupWindow popup = popup(panel, (int) (240 * density));
+        int index = appRow.indexOfChild(tile);
+        menuRow(rows, popup, R.string.tile_move, () -> startMove(index));
+        if (orderKeys.size() > FAVOURITES) {
+            menuRow(rows, popup, R.string.tile_remove_favourite, () -> {
+                orderKeys.add(FAVOURITES, orderKeys.remove(index));
+                saveOrder();
+                buildApps();
+                View next = appRow.getChildAt(Math.min(index, appRow.getChildCount() - 1));
+                if (next != null) next.requestFocus();
+            });
+        }
+        menuRow(rows, popup, R.string.tile_more_favourites, () -> openApps(findViewById(R.id.tabApps)));
+        menuRow(rows, popup, R.string.tile_app_info, () ->
+                open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + pkg))));
+        GlassScreen.popAbove(popup, panel, tile, root, density);
+        rows.getChildAt(0).requestFocus();
+    }
+
+    /** A menu row. The OK-up that follows a hold must not activate the row focus lands on. */
+    private void menuRow(LinearLayout rows, PopupWindow popup, int title, Runnable action) {
+        View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
+        row.findViewById(R.id.icon).setVisibility(View.GONE);
+        row.findViewById(R.id.dot).setVisibility(View.GONE);
+        row.findViewById(R.id.status).setVisibility(View.GONE);
+        ((TextView) row.findViewById(R.id.title)).setText(title);
+        row.setOnClickListener(v -> {
+            popup.dismiss();
+            action.run();
+        });
+        final boolean[] pressed = {false};
+        row.setOnKeyListener((v, code, event) -> {
+            if (code != KeyEvent.KEYCODE_DPAD_CENTER && code != KeyEvent.KEYCODE_ENTER) return false;
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (event.getRepeatCount() == 0) pressed[0] = true;
+                return true;
+            }
+            boolean activate = pressed[0];
+            pressed[0] = false;
+            if (activate) {
+                popup.dismiss();
+                action.run();
+            }
+            return true;
+        });
+        rows.addView(row);
+    }
+
+    private void startMove(int index) {
+        movingIndex = index;
+        View tile = appRow.getChildAt(index);
+        if (tile != null) tile.requestFocus();
+        android.widget.Toast.makeText(this, R.string.tile_move_hint, android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    /** The neighbour moves, not the carried tile: the carried tile keeps focus and its lift. */
+    private void moveTile(int step) {
+        int to = movingIndex + step;
+        if (to < 0 || to >= appRow.getChildCount()) return;
+        View other = appRow.getChildAt(to);
+        float shift = other.getWidth() + (int) ((856 - 5 * 136) / 4f * density);
+        appRow.removeViewAt(to);
+        appRow.addView(other, movingIndex);
+        Collections.swap(orderKeys, movingIndex, to);
+        movingIndex = to;
+        for (int i = 0; i < appRow.getChildCount(); i++) {
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) appRow.getChildAt(i).getLayoutParams();
+            lp.leftMargin = i > 0 ? (int) ((856 - 5 * 136) / 4f * density) : 0;
+        }
+        firstApp = appRow.getChildAt(0);
+        other.setTranslationX(step > 0 ? shift : -shift);
+        other.animate().translationX(0f).setDuration(Motion.ms(220)).setInterpolator(Motion.EMPHASIZED).start();
+        View carried = appRow.getChildAt(movingIndex);
+        carried.setTranslationX(step > 0 ? -shift : shift);
+        carried.animate().translationX(0f).setDuration(Motion.ms(220)).setInterpolator(Motion.EMPHASIZED).start();
+    }
+
+    private void endMove() {
+        movingIndex = -1;
+        saveOrder();
     }
 
     private void dimUnfocusedApps() {
@@ -410,6 +555,27 @@ public class DashboardActivity extends GlassScreen implements NowPlaying.Listene
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (movingIndex >= 0) {
+            boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
+            switch (event.getKeyCode()) {
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                    if (down) moveTile(-1);
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    if (down) moveTile(1);
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_UP:
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_BACK:
+                    if (!down) endMove();
+                    return true;
+                default:
+                    break;
+            }
+        }
         // Media keys on the remote control whatever is playing.
         if (event.getAction() == KeyEvent.ACTION_DOWN && nowPlaying != null && nowPlaying.hasSession()) {
             switch (event.getKeyCode()) {

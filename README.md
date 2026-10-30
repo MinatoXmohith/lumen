@@ -1,4 +1,8 @@
 <p align="center">
+  <b>Customized your TV? Share it and tag <a href="https://www.instagram.com/mk_dziner/">@mk_dziner</a> on Instagram!</b>
+</p>
+
+<p align="center">
   <img src="brand/banner@2x.jpg" alt="Lumen" width="480">
 </p>
 
@@ -8,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.0-ffbe5c?style=flat-square&labelColor=15181e" alt="Version 3.0">
+  <img src="https://img.shields.io/badge/version-3.2-ffbe5c?style=flat-square&labelColor=15181e" alt="Version 3.2">
   <img src="https://img.shields.io/badge/Android%20TV-8%2B-ffbe5c?style=flat-square&labelColor=15181e" alt="Android TV 8+">
   <img src="https://img.shields.io/badge/root-not%20required-ffbe5c?style=flat-square&labelColor=15181e" alt="No root">
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-ffbe5c?style=flat-square&labelColor=15181e" alt="MIT"></a>
@@ -30,6 +34,9 @@ your favourite apps on clear glass over a wallpaper that fits your mood. Designe
 | 🏠 **Dashboard home** | Greeting and date, HOME · APPS tabs, a time + photo pill that opens Inputs, Wi-Fi and Settings, and five favourite apps. |
 | 🎵 **Now playing** | Whatever is playing (Spotify, YouTube Music…) with album art and controls; the remote's media keys work too. |
 | 🌤 **Weather** | Temperature, condition, day / night, feels like, UV, wind and cloud cover from [Open-Meteo](https://open-meteo.com): free, no account. |
+| ▶️ **Continue watching** | A row in All apps with title, poster and progress, built on the TV from what your video apps announce while playing. |
+| ⭐ **Favourites your way** | Hold OK on any app to move it or add it to Home's favourites. |
+| 🎛 **Remote buttons** | Press a button, choose what it does: open an app, Home, All apps, Inputs and more. Arrows, OK, Back, Home and Power stay locked. |
 | 🖼 **Wallpapers by mood** | Five static and five live (video) wallpapers. Live ones stop the moment an app opens, so the app always gets the video decoder. |
 | 🌊 **Smooth motion** | One set of curves, spring focus, menus that fade out; designed speed even with system animations at 0.5×. |
 | 🪶 **Light** | Plain Java, ~1.7 MB with the built-in wallpapers, no background services, no tracking. |

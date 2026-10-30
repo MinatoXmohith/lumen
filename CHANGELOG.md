@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.2 (30 October 2026)
+- **Continue watching:** a row above the favourites in All apps, with title, poster and progress. Android keeps each
+  app's own Watch Next list behind a system-only permission, so Lumen builds this list itself from what apps announce
+  through media sessions. It stays on the TV. Music apps and anything under a minute are left out; hold OK to remove one.
+- **Favourites:** hold OK on any app to move it, or add it to or remove it from favourites. Home and All apps now share
+  one saved order. The hold menu also keeps App info.
+- **Remote buttons:** Launcher settings > Remote buttons: press a button and choose what it does, from any app.
+  Arrows, OK, Back, Home and Power can't be changed. Needs the "Lumen remote buttons" accessibility service.
+- **Smoother Home:** glass and tiles are cached on the GPU, so moving between apps no longer drops frames over a live
+  wallpaper. Video starts and stops off the main thread.
+- **APPS transition rebuilt:** the wallpaper stays put and only the content changes. Zooming two full-screen windows
+  over a video was too much for this TV's Mali-470 GPU. Heavy setup now finishes before the fade begins, and the video
+  carries on from the same frame between screens, with no fade and no jump.
+
 ## 3.1 (29 October 2026)
 - **Trending is off for now.** Down on Home no longer opens it and nothing is fetched from TMDB; it froze the TV on
   some opens. It will come back once it is rebuilt to be lighter.
